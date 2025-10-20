@@ -41,6 +41,25 @@ Search for multiple words:
 python oxford_dict.py hello world example
 ```
 
+### Batch Processing from File
+
+Create a text file with one word per line (e.g., `words.txt`):
+```
+hello
+world
+example
+```
+
+Then search all words from the file:
+```bash
+python oxford_dict.py -f words.txt -o output.csv
+```
+
+You can also combine file input with direct words:
+```bash
+python oxford_dict.py -f words.txt hello world -o output.csv
+```
+
 ### Export to Anki
 
 Export search results to a CSV file for Anki import:
@@ -57,7 +76,8 @@ python oxford_dict.py -q -o output.csv hello world
 
 ### Command-line Options
 
-- `words`: One or more words to search (required)
+- `words`: One or more words to search (optional if using -f)
+- `-f, --file FILE`: Read words from a file (one word per line)
 - `-o, --output FILE`: Export results to CSV file for Anki import
 - `-q, --quiet`: Suppress console output
 - `-h, --help`: Show help message

@@ -169,8 +169,13 @@ def main():
     )
     parser.add_argument(
         'words',
-        nargs='+',
+        nargs='*',
         help='Word(s) to search for'
+    )
+    parser.add_argument(
+        '-f', '--file',
+        help='Read words from a file (one word per line)',
+        default=None
     )
     parser.add_argument(
         '-o', '--output',
@@ -185,11 +190,28 @@ def main():
     
     args = parser.parse_args()
     
+    # Collect words from arguments and/or file
+    words_to_search = list(args.words) if args.words else []
+    
+    if args.file:
+        try:
+            with open(args.file, 'r', encoding='utf-8') as f:
+                file_words = [line.strip() for line in f if line.strip()]
+                words_to_search.extend(file_words)
+        except IOError as e:
+            print(f"Error reading file {args.file}: {e}", file=sys.stderr)
+            sys.exit(1)
+    
+    if not words_to_search:
+        parser.print_help()
+        print("\nError: Please provide words to search either as arguments or via -f/--file", file=sys.stderr)
+        sys.exit(1)
+    
     dictionary = OxfordDictionary()
     formatter = AnkiFormatter()
     results = []
     
-    for word in args.words:
+    for word in words_to_search:
         if not args.quiet:
             print(f"Searching for '{word}'...", file=sys.stderr)
         
