@@ -1,11 +1,13 @@
 /* global api */
 class envi_Cambridge {
     constructor(options) {
+        // Giữ lại constructor để nhận options
         this.options = options;
         this.maxexample = 2;
         this.word = '';
     }
 
+    // Các hàm này có thể là một phần của API, cứ giữ lại
     async displayName() {
         return 'Cambridge EN->VI Dictionary';
     }
@@ -15,122 +17,8 @@ class envi_Cambridge {
         this.maxexample = options.maxexample;
     }
 
-    async findTerm(word) {
-        this.word = word;
-        return this.findCambridge(word);
-    }
-
-    async findCambridge(word) {
-        let notes = [];
-        if (!word) return notes;
-
-        // Helper function to get text content from a node
-        function T(node) {
-            return node ? node.innerText.trim() : '';
-        }
-
-        // *** THAY ĐỔI 1: Đổi URL sang từ điển Anh-Việt ***
-        let base = 'https://dictionary.cambridge.org/dictionary/english-vietnamese/';
-        let url = base + encodeURIComponent(word);
-        let doc;
-        try {
-            let data = await api.fetch(url);
-            let parser = new DOMParser();
-            doc = parser.parseFromString(data, 'text/html');
-        } catch (err) {
-            return [];
-        }
-
-        let entries = doc.querySelectorAll('.pr.entry-body__el') || [];
-        for (const entry of entries) {
-            let definitions = [];
-            let audios = [];
-
-            let expression = T(entry.querySelector('.di-title .hw'));
-            if (!expression) continue;
-
-            let reading = '';
-            let reading_uk_el = entry.querySelector('.uk .ipa');
-            let reading_us_el = entry.querySelector('.us .ipa');
-            if (reading_uk_el) reading += `UK <span class="ipa">/${T(reading_uk_el)}/</span> `;
-            if (reading_us_el) reading += `US <span class="ipa">/${T(reading_us_el)}/</span>`;
-            
-            let pos = T(entry.querySelector('.posgram.dpos-g .pos'));
-            pos = pos ? `<span class='pos'>${pos}</span>` : '';
-
-            let audio_uk_el = entry.querySelector('.uk source[type="audio/mpeg"]');
-            if (audio_uk_el) audios.push('https://dictionary.cambridge.org' + audio_uk_el.getAttribute('src'));
-            
-            let audio_us_el = entry.querySelector('.us source[type="audio/mpeg"]');
-            if (audio_us_el) audios.push('https://dictionary.cambridge.org' + audio_us_el.getAttribute('src'));
-
-            let sense_blocks = entry.querySelectorAll('.pr.dsense') || [];
-            for (const block of sense_blocks) {
-                let def_blocks = block.querySelectorAll('.def-block.ddef_block') || [];
-                for (const def_block of def_blocks) {
-                    // Lấy định nghĩa tiếng Anh
-                    let eng_tran = T(def_block.querySelector('.def.ddef_d'));
-                    if (!eng_tran) continue;
-                    
-                    // *** THAY ĐỔI 2: Lấy thêm định nghĩa tiếng Việt ***
-                    let vi_tran = T(def_block.querySelector('.def-body .trans.dtrans'));
-                    
-                    let definition = '';
-                    
-                    if (!block.closest('.phrase-block')) {
-                        definition += pos;
-                    }
-                    
-                    // Hiển thị định nghĩa Anh và Việt
-                    definition += `<span class='eng_tran'>${eng_tran}</span>`;
-                    if (vi_tran) {
-                        definition += `<span class='vi_tran'>${vi_tran}</span>`;
-                    }
-
-                    let examples = def_block.querySelectorAll('.examp.dexamp') || [];
-                    if (examples.length > 0 && this.maxexample > 0) {
-                        definition += '<ul class="sents">';
-                        for (const [index, examp] of examples.entries()) {
-                            if (index >= this.maxexample) break;
-                            
-                            // Lấy ví dụ tiếng Anh
-                            let eng_examp = T(examp.querySelector('.eg'));
-                            // *** THAY ĐỔI 3: Lấy thêm ví dụ tiếng Việt ***
-                            let vi_examp = T(examp.querySelector('.trans.dtrans'));
-
-                            if (eng_examp) {
-                                const regex = new RegExp(`\\b(${this.word})\\b`, 'gi');
-                                eng_examp = eng_examp.replace(regex, `<b>$1</b>`);
-                                
-                                // Hiển thị ví dụ Anh và Việt
-                                definition += `<li class='sent'>
-                                                 <span class='eng_sent'>${eng_examp}</span>
-                                                 ${vi_examp ? `<span class='vi_sent'>${vi_examp}</span>` : ''}
-                                               </li>`;
-                            }
-                        }
-                        definition += '</ul>';
-                    }
-                    definitions.push(definition);
-                }
-            }
-            
-            if (definitions.length > 0) {
-                let css = this.renderCSS();
-                notes.push({
-                    css,
-                    expression,
-                    reading,
-                    definitions,
-                    audios
-                });
-            }
-        }
-        return notes;
-    }
-
+    // Hàm renderCSS (chuyển thành một hàm của class)
     renderCSS() {
-        // *** THAY ĐỔI 4: Cập nhật CSS để định dạng text tiếng Việt ***
         return `
             <style>
                 span.ipa { color: #888; }
@@ -142,5 +30,117 @@ class envi_Cambridge {
                 span.eng_sent { margin-right: 5px; display: block;}
                 span.vi_sent { color: #0d47a1; display: block; }
             </style>`;
+    }
+
+    // Hàm T (Helper)
+    T(node) {
+        return node ? node.innerText.trim() : '';
+    }
+
+    // *** Hàm findTerm được sửa lại theo template ***
+    findTerm(word) {
+        this.word = word;
+        let self = this; // Lưu lại 'this' để dùng trong .then()
+        let notes = [];
+
+        // Trả về một Promise đúng như template yêu cầu
+        return new Promise((resolve, reject) => {
+            if (!word) {
+                resolve([]);
+                return;
+            }
+
+            let base = 'https://dictionary.cambridge.org/dictionary/english-vietnamese/';
+            let url = base + encodeURIComponent(word);
+
+            // Dùng api.fetch với .then() và .catch() thay vì async/await
+            api.fetch(url)
+                .then(data => {
+                    // Toàn bộ logic xử lý HTML (parsing) nằm ở đây
+                    let parser = new DOMParser();
+                    let doc = parser.parseFromString(data, 'text/html');
+
+                    let entries = doc.querySelectorAll('.pr.entry-body__el') || [];
+                    for (const entry of entries) {
+                        let definitions = [];
+                        let audios = [];
+
+                        let expression = self.T(entry.querySelector('.di-title .hw'));
+                        if (!expression) continue;
+
+                        let reading = '';
+                        let reading_uk_el = entry.querySelector('.uk .ipa');
+                        let reading_us_el = entry.querySelector('.us .ipa');
+                        if (reading_uk_el) reading += `UK <span class="ipa">/${self.T(reading_uk_el)}/</span> `;
+                        if (reading_us_el) reading += `US <span class="ipa">/${self.T(reading_us_el)}/</span>`;
+                        
+                        let pos = self.T(entry.querySelector('.posgram.dpos-g .pos'));
+                        pos = pos ? `<span class='pos'>${pos}</span>` : '';
+
+                        let audio_uk_el = entry.querySelector('.uk source[type="audio/mpeg"]');
+                        if (audio_uk_el) audios.push('https://dictionary.cambridge.org' + audio_uk_el.getAttribute('src'));
+                        
+                        let audio_us_el = entry.querySelector('.us source[type="audio/mpeg"]');
+                        if (audio_us_el) audios.push('https://dictionary.cambridge.org' + audio_us_el.getAttribute('src'));
+
+                        let sense_blocks = entry.querySelectorAll('.pr.dsense') || [];
+                        for (const block of sense_blocks) {
+                            let def_blocks = block.querySelectorAll('.def-block.ddef_block') || [];
+                            for (const def_block of def_blocks) {
+                                let eng_tran = self.T(def_block.querySelector('.def.ddef_d'));
+                                if (!eng_tran) continue;
+                                let vi_tran = self.T(def_block.querySelector('.def-body .trans.dtrans'));
+                                let definition = '';
+                                if (!block.closest('.phrase-block')) {
+                                    definition += pos;
+                                }
+                                definition += `<span class='eng_tran'>${eng_tran}</span>`;
+                                if (vi_tran) {
+                                    definition += `<span class='vi_tran'>${vi_tran}</span>`;
+                                }
+                                let examples = def_block.querySelectorAll('.examp.dexamp') || [];
+                                if (examples.length > 0 && self.maxexample > 0) {
+                                    definition += '<ul class="sents">';
+                                    for (const [index, examp] of examples.entries()) {
+                                        if (index >= self.maxexample) break;
+                                        let eng_examp = self.T(examp.querySelector('.eg'));
+                                        let vi_examp = self.T(examp.querySelector('.trans.dtrans'));
+                                        if (eng_examp) {
+                                            const regex = new RegExp(`\\b(${self.word})\\b`, 'gi');
+                                            eng_examp = eng_examp.replace(regex, `<b>$1</b>`);
+                                            definition += `<li class='sent'>
+                                                             <span class='eng_sent'>${eng_examp}</span>
+                                                             ${vi_examp ? `<span class='vi_sent'>${vi_examp}</span>` : ''}
+                                                           </li>`;
+                                        }
+                                    }
+                                    definition += '</ul>';
+                                }
+                                definitions.push(definition);
+                            }
+                        }
+                        
+                        if (definitions.length > 0) {
+                            let css = self.renderCSS(); // Gọi hàm renderCSS
+                            notes.push({
+                                css,
+                                expression,
+                                reading,
+                                definitions,
+                                audios
+                            });
+                        }
+                    }
+                    
+                    // Khi xử lý xong, gọi resolve() để trả kết quả
+                    resolve(notes);
+
+                })
+                .catch(err => {
+                    // Nếu có lỗi, gọi reject()
+                    console.error("Lỗi khi tải từ điển Cambridge EN-VI:", err);
+                    reject(err);
+                });
+        });
     }
 }
